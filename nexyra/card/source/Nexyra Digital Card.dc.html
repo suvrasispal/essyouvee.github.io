@@ -461,10 +461,33 @@ class Component extends DCLogic {
   }
 
   // recipients open a view-only card carrying the owner's details
-  shareUrl() {
+  longUrl() {
     if (this.state.viewer) { try { return location.href; } catch (e) { return this.baseUrl(); } }
     const payload = this.encodePayload();
     return this.baseUrl() + (payload ? '#c=' + payload : '');
+  }
+
+  shareUrl() {
+    const long = this.longUrl();
+    return (this.state.shortFor === long && this.state.shortUrl) ? this.state.shortUrl : long;
+  }
+
+  // free shortener, no account; the long link stays as the fallback
+  ensureShort() {
+    const long = this.longUrl();
+    if (this.state.shortFor === long || this.state.shortening) return;
+    if (!/^https?:\/\//i.test(long) || /localhost|127\.0\.0\.1/.test(long)) {
+      this.setState({shortStatus: 'not-hosted'});
+      return;
+    }
+    this.setState({shortening: true, shortStatus: 'working'});
+    fetch('https://is.gd/create.php?format=json&url=' + encodeURIComponent(long))
+      .then(r => r.json())
+      .then(j => {
+        if (j && j.shorturl) this.setState({shortUrl: j.shorturl, shortFor: long, shortening: false, shortStatus: 'ready'});
+        else this.setState({shortening: false, shortStatus: 'failed'});
+      })
+      .catch(() => this.setState({shortening: false, shortStatus: 'failed'}));
   }
 
   persist(data, logo, theme) {
@@ -609,9 +632,16 @@ class Component extends DCLogic {
       qrShare: this.qrSvg('100%'),
       qrOpen: this.state.qrOpen,
       shareUrl: this.shareUrl(),
-      shareStatus: this.state.status || ((!this.isHosted() && !(d.cardUrl || '').trim())
-        ? 'This file is not hosted yet — add your live address under “Published card URL” in Edit details so shared links open the card.'
-        : 'Recipients open a view-only card — they cannot edit or change it.'),
+      shareStatus: this.state.status || (
+        this.state.shortStatus === 'not-hosted'
+          ? 'This file is not hosted yet — add your live address under “Published card URL” in Edit details so shared links open the card.'
+        : this.state.shortStatus === 'working'
+          ? 'Creating a short link…'
+        : this.state.shortStatus === 'ready'
+          ? 'Short link ready — recipients open a view-only card they cannot edit.'
+        : this.state.shortStatus === 'failed'
+          ? 'Short link unavailable right now — sharing the full link instead.'
+          : 'Recipients open a view-only card — they cannot edit or change it.'),
       innerStyle: {
         position: 'relative', width: '100%', aspectRatio: '1.586', transformStyle: 'preserve-3d',
         transition: 'transform .85s cubic-bezier(.2,.8,.2,1)',
@@ -639,7 +669,7 @@ class Component extends DCLogic {
       },
       toggleFlip: () => this.setState(s => ({flipped: !s.flipped})),
       openEditor: () => this.setState({editing: true, sharing: false}),
-      openShare: () => this.setState({sharing: true, editing: false, status: ''}),
+      openShare: () => { this.setState({sharing: true, editing: false, status: ''}); this.ensureShort(); },
       closeAll: () => this.setState({editing: false, sharing: false}),
       saveContact: () => this.vcard(),
       resetFields: () => this.setState(s => { this.persist(Object.assign({}, DEFAULTS), s.logo); return {data: Object.assign({}, DEFAULTS)}; })
