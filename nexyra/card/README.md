@@ -26,6 +26,10 @@ Any static host works. Upload `index.html` as-is:
 
 Recommended URL: `card.nexyraconsulting.co.uk` or `nexyraconsulting.co.uk/card`.
 
+## Short links
+
+Opening the share sheet automatically creates a short link (via is.gd — free, no account) and shares that on WhatsApp, Email, Copy link, LinkedIn and in the QR code. If the service is unreachable, sharing silently falls back to the full link; the sheet says which you're getting. Short links are only created for a hosted card — a `file://` path can't be shortened.
+
 ## Point the share links at your live address
 
 Share links and the QR code use, in order: the **Published card URL** field in Edit details → the `shareUrl` prop → the page's own address.
